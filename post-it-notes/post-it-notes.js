@@ -172,7 +172,7 @@ function initializePostItNotes() {
 
     // --- EVENT LISTENERS ---
     addNoteBtn.addEventListener('click', addNote);
-    newNoteInput.addEventListener('keypress', (e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote(); }});
+    // newNoteInput.addEventListener('keypress', (e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote(); }});
     searchInput.addEventListener('input', renderNotes);
     viewGridBtn.addEventListener('click', () => setView('grid'));
     viewListBtn.addEventListener('click', () => setView('list'));
