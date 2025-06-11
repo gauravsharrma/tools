@@ -8,17 +8,36 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
     <style>
         body { font-family: 'Merriweather', serif; }
         .active-tool { background-color: #3b82f6; color: white !important; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .tool-content { animation: fadeIn 0.3s ease-in-out; }
+        /* For the markdown output area */
+        #md-output { font-size: 16px; }
+        /* Tailwind's 'prose' class gives beautiful typography to the rendered HTML */
+        #md-output.prose h1,
+        #md-output.prose h2 {
+             margin-top: 0;
+             padding-bottom: 0.3em;
+             border-bottom: 1px solid #e5e7eb;
+        }
+        #md-output.prose pre {
+            color: #abb2bf;
+            background-color: #282c34;
+        }
     </style>
 </head>
 <body class="bg-slate-100 h-screen overflow-hidden">
 
     <div class="flex h-full">
-        <div class="w-1/4 bg-white border-r border-slate-200 p-6 flex flex-col">
+        <div id="left-sidebar" class="w-1/4 bg-white border-r border-slate-200 p-6 flex flex-col transition-all duration-300">
             <h1 class="text-2xl font-bold text-slate-800 mb-6">Tools</h1>
             <div class="mb-4">
                 <input type="text" id="toolSearch" onkeyup="filterTools()" placeholder="Search tools..." class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -32,95 +51,94 @@
             </div>
         </div>
 
-        <main id="content-frame" class="w-3/4 p-8 overflow-y-auto"></main>
+        <main id="content-frame" class="w-3/4 p-0 md:p-8 overflow-y-auto transition-all duration-300"></main>
     </div>
 
 <script>
     // =========================================================================
     //  SINGLE SOURCE OF TRUTH: TOOL CONFIGURATION
-    //  To add a new tool, just add an object to this array.
     // =========================================================================
     const TOOLS = [
         {
+            name: 'Markdown to HTML',
+            file: 'markdown-converter.html',
+            initFunction: initializeMarkdownConverter,
+            isWide: true // Flag for special layout
+        },
+        {
             name: 'Calculator',
             file: 'calculator.html',
-            initFunction: initializeCalculator // Pass the function reference itself
+            initFunction: initializeCalculator
         },
         {
             name: 'Character & Word Count',
             file: 'word-counter.html',
             initFunction: initializeWordCounter
-        },
-        // Add your new tool here
-        {
-            name: 'JSON Formatter',
-            file: 'json-formatter.html',
-            initFunction: initializeJsonFormatter
         }
-        // EXAMPLE: To add a new "Stopwatch" tool, you would add this:
-        // {
-        //     name: 'Stopwatch',
-        //     file: 'stopwatch.html',
-        //     initFunction: initializeStopwatch
-        // }
     ];
 
     // =========================================================================
-    //  CORE APPLICATION LOGIC (No need to edit this)
+    //  CORE APPLICATION LOGIC
     // =========================================================================
     
-    // Dynamically populates the sidebar from the TOOLS configuration
     function populateToolList() {
         const ul = document.getElementById('tools-ul');
-        ul.innerHTML = ''; // Clear existing list
+        ul.innerHTML = '';
         TOOLS.forEach(tool => {
             const li = document.createElement('li');
             const a = document.createElement('a');
             a.href = '#';
             a.textContent = tool.name;
             a.className = 'block p-3 rounded-lg font-semibold text-slate-700 hover:bg-slate-200';
-            // Pass the tool's file and init function to loadTool
             a.onclick = (e) => {
                 e.preventDefault();
-                loadTool(tool.file, tool.initFunction, a);
+                loadTool(tool, a);
             };
             li.appendChild(a);
             ul.appendChild(li);
         });
     }
 
-    // Fetches and loads tool HTML, then runs its specific initialization script
-    async function loadTool(toolFile, initFunction, element) {
+    async function loadTool(tool, element) {
+        const { file, initFunction, isWide } = tool;
+        const leftSidebar = document.getElementById('left-sidebar');
+        const contentFrame = document.getElementById('content-frame');
+
+        if (isWide) {
+            leftSidebar.classList.remove('w-1/4', 'p-6');
+            leftSidebar.classList.add('w-[10%]', 'p-3');
+            contentFrame.classList.remove('w-3/4', 'md:p-8');
+            contentFrame.classList.add('w-[90%]', 'p-0');
+        } else {
+            leftSidebar.classList.remove('w-[10%]', 'p-3');
+            leftSidebar.classList.add('w-1/4', 'p-6');
+            contentFrame.classList.remove('w-[90%]', 'p-0');
+            contentFrame.classList.add('w-3/4', 'md:p-8');
+        }
+        
         try {
-            const response = await fetch(toolFile);
-            if (!response.ok) throw new Error(`Could not fetch ${toolFile}`);
+            const response = await fetch(file);
+            if (!response.ok) throw new Error(`Could not fetch ${file}`);
+            contentFrame.innerHTML = await response.text();
             
-            document.getElementById('content-frame').innerHTML = await response.text();
-            
-            // If an initialization function is provided, run it.
             if (initFunction && typeof initFunction === 'function') {
                 initFunction();
             }
 
-            // Update the active link style
             document.querySelectorAll('#toolList a').forEach(link => link.classList.remove('active-tool'));
             element.classList.add('active-tool');
-
         } catch (error) {
-            document.getElementById('content-frame').innerHTML = `<p class="text-center text-red-500 font-semibold">${error}</p>`;
+            contentFrame.innerHTML = `<p class="text-center text-red-500 font-semibold">${error}</p>`;
             console.error('Error loading tool:', error);
         }
     }
 
-    // On page load, build the list and load the first tool
     document.addEventListener('DOMContentLoaded', () => {
         populateToolList();
-        
         if (TOOLS.length > 0) {
             const firstToolLink = document.querySelector('#toolList a');
-            loadTool(TOOLS[0].file, TOOLS[0].initFunction, firstToolLink);
+            loadTool(TOOLS[0], firstToolLink);
         }
-
         updateTime();
         setInterval(updateTime, 1000);
     });
@@ -143,8 +161,120 @@
 
     // =========================================================================
     //  TOOL-SPECIFIC INITIALIZATION SCRIPTS
-    //  Create one of these for each tool you make.
     // =========================================================================
+
+    function initializeMarkdownConverter() {
+        const mdInput = document.getElementById('md-input');
+        const mdOutput = document.getElementById('md-output');
+        const splitBy = document.getElementById('split-by');
+        const navInfo = document.getElementById('nav-info');
+        const currentChunkEl = document.getElementById('current-chunk');
+        const totalChunksEl = document.getElementById('total-chunks');
+        const increaseFontBtn = document.getElementById('increase-font');
+        const decreaseFontBtn = document.getElementById('decrease-font');
+
+        let contentChunks = [];
+        let currentChunkIndex = 0;
+        let currentFontSize = 16;
+        
+        marked.setOptions({
+            highlight: function(code, lang) {
+                const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                return hljs.highlight(code, { language }).value;
+            },
+            gfm: true,
+            breaks: true
+        });
+
+        const convertAndRender = () => {
+            const markdown = mdInput.value;
+            const splitValue = splitBy.value;
+
+            if (splitValue === 'none') {
+                mdOutput.innerHTML = marked.parse(markdown);
+                navInfo.classList.add('hidden');
+                contentChunks = [];
+                return;
+            }
+
+            navInfo.classList.remove('hidden');
+            let regex;
+            switch(splitValue) {
+                case '---': regex = /(?=^---$)/m; break;
+                case '#': regex = /(?=^#\s)/m; break;
+                case '##': regex = /(?=^##\s)/m; break;
+                case '###': regex = /(?=^###\s)/m; break;
+                case 'paragraph': regex = /(?=\n\n)/; break;
+                case 'sentence': regex = /(?<=[.!?])\s+/; break;
+            }
+            
+            contentChunks = markdown.split(regex).filter(s => s.trim() !== '');
+            totalChunksEl.textContent = contentChunks.length || 1;
+            renderChunk(0);
+        };
+        
+        const renderChunk = (index) => {
+            if (contentChunks.length === 0) {
+                mdOutput.innerHTML = marked.parse(mdInput.value);
+                currentChunkIndex = 0;
+                currentChunkEl.textContent = 1;
+                return;
+            }
+            currentChunkIndex = Math.max(0, Math.min(index, contentChunks.length - 1));
+            mdOutput.innerHTML = marked.parse(contentChunks[currentChunkIndex] || '');
+            currentChunkEl.textContent = currentChunkIndex + 1;
+        };
+        
+        const handleKeyDown = (e) => {
+            if (splitBy.value !== 'none') {
+                if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    renderChunk(currentChunkIndex + 1);
+                } else if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    renderChunk(currentChunkIndex - 1);
+                }
+            }
+        };
+
+        const updateFontSize = (newSize) => {
+            currentFontSize = Math.max(8, Math.min(32, newSize));
+            mdOutput.style.fontSize = `${currentFontSize}px`;
+        };
+        
+        const resizer = document.getElementById('md-resizer');
+        const leftPane = document.getElementById('md-left-pane');
+        const rightPane = document.getElementById('md-right-pane');
+        
+        let isResizing = false;
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', () => {
+                isResizing = false;
+                document.removeEventListener('mousemove', handleMouseMove);
+            }, { once: true });
+        });
+
+        const handleMouseMove = (e) => {
+            if (!isResizing) return;
+            const container = document.getElementById('md-main-content');
+            const containerOffsetLeft = container.getBoundingClientRect().left;
+            const pointerRelativeX = e.clientX - containerOffsetLeft;
+            const newLeftWidth = (pointerRelativeX / container.clientWidth) * 100;
+            
+            leftPane.style.width = `${Math.max(10, Math.min(90, newLeftWidth))}%`;
+            rightPane.style.width = `${100 - Math.max(10, Math.min(90, newLeftWidth))}%`;
+        };
+
+        mdInput.addEventListener('input', convertAndRender);
+        splitBy.addEventListener('change', convertAndRender);
+        document.addEventListener('keydown', handleKeyDown);
+        increaseFontBtn.addEventListener('click', () => updateFontSize(currentFontSize + 1));
+        decreaseFontBtn.addEventListener('click', () => updateFontSize(currentFontSize - 1));
+
+        convertAndRender();
+    }
 
     function initializeCalculator() {
         const calcDisplay = document.getElementById('calcDisplay');
@@ -190,22 +320,6 @@
             document.getElementById('charCount').textContent = text.length;
             const words = text.trim().split(/\s+/).filter(word => word !== '');
             document.getElementById('wordCount').textContent = text.trim() === '' ? 0 : words.length;
-        });
-    }
-
-    // Add this with your other initializer functions
-    function initializeJsonFormatter() {
-        const jsonInput = document.getElementById('jsonInput');
-        const jsonOutput = document.getElementById('jsonOutput');
-        jsonInput.addEventListener('input', () => {
-            try {
-                const parsed = JSON.parse(jsonInput.value);
-                jsonOutput.textContent = JSON.stringify(parsed, null, 2);
-                jsonOutput.classList.remove('text-red-500');
-            } catch (e) {
-                jsonOutput.textContent = e.message;
-                jsonOutput.classList.add('text-red-500');
-            }
         });
     }
 </script>
