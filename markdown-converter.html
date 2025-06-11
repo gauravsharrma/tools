@@ -1,0 +1,41 @@
+<div id="md-container" class="tool-content w-full h-full flex flex-col">
+    <div class="flex-shrink-0 p-3 bg-white border-b border-slate-300 flex items-center justify-between shadow-sm">
+        <h2 class="text-xl font-bold text-slate-800">Markdown to HTML</h2>
+        <div class="flex items-center gap-6">
+            <div>
+                <span class="text-sm font-semibold text-slate-600 mr-2">Font Size:</span>
+                <button id="decrease-font" class="px-3 py-1 bg-slate-200 hover:bg-slate-300 rounded-l-md font-bold text-lg">-</button>
+                <button id="increase-font" class="px-3 py-1 bg-slate-200 hover:bg-slate-300 rounded-r-md font-bold text-lg">+</button>
+            </div>
+            <div>
+                <label for="split-by" class="text-sm font-semibold text-slate-600 mr-2">Split By:</label>
+                <select id="split-by" class="py-1 px-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="none">None (Show All)</option>
+                    <option value="---">Horizontal Rule (---)</option>
+                    <option value="#">H1 (#)</option>
+                    <option value="##">H2 (##)</option>
+                    <option value="###">H3 (###)</option>
+                    <option value="paragraph">Paragraph</option>
+                    <option value="sentence">Sentence</option>
+                </select>
+            </div>
+             <div id="nav-info" class="text-sm text-slate-500 font-semibold hidden">
+                <span id="current-chunk">1</span> of <span id="total-chunks">1</span>
+                <span class="ml-2">(Use ← → keys to navigate)</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="md-main-content" class="flex-grow flex w-full" style="height: calc(100vh - 150px);">
+        <div id="md-left-pane" class="w-1/2 h-full p-1 relative">
+             <textarea id="md-input" class="w-full h-full p-4 border-slate-300 rounded-lg focus:outline-none resize-none font-mono text-base" placeholder="Paste your Markdown here..."></textarea>
+        </div>
+        
+        <div id="md-resizer" class="w-2 h-full cursor-col-resize bg-slate-300 hover:bg-blue-500"></div>
+
+        <div id="md-right-pane" class="w-1/2 h-full p-1">
+            <div id="md-output" class="w-full h-full p-6 border-slate-300 rounded-lg bg-white overflow-y-auto prose max-w-none">
+                </div>
+        </div>
+    </div>
+</div>
