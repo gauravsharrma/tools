@@ -1,27 +1,27 @@
 [
     {
         "name": "Post-it Notes",
-        "html": "./tools/post-it-notes/post-it-notes.html",
-        "js": "./tools/post-it-notes/post-it-notes.js",
+        "html": "./post-it-notes/post-it-notes.html",
+        "js": "./post-it-notes/post-it-notes.js",
         "initFunction": "initializePostItNotes"
     },
     {
         "name": "Markdown to HTML",
-        "html": "./tools/markdown-converter/markdown-converter.html",
-        "js": "./tools/markdown-converter/markdown-converter.js",
+        "html": "./markdown-converter/markdown-converter.html",
+        "js": "./markdown-converter/markdown-converter.js",
         "initFunction": "initializeMarkdownConverter",
         "isWide": true
     },
     {
         "name": "Calculator",
-        "html": "./tools/calculator/calculator.html",
-        "js": "./tools/calculator/calculator.js",
+        "html": "./calculator/calculator.html",
+        "js": "./calculator/calculator.js",
         "initFunction": "initializeCalculator"
     },
     {
         "name": "Character & Word Count",
-        "html": "./tools/word-counter/word-counter.html",
-        "js": "./tools/word-counter/word-counter.js",
+        "html": "./word-counter/word-counter.html",
+        "js": "./word-counter/word-counter.js",
         "initFunction": "initializeWordCounter"
     }
 ]
