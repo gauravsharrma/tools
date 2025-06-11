@@ -50,6 +50,12 @@
             name: 'Character & Word Count',
             file: 'word-counter.html',
             initFunction: initializeWordCounter
+        },
+        // Add your new tool here
+        {
+            name: 'JSON Formatter',
+            file: 'json-formatter.html',
+            initFunction: initializeJsonFormatter
         }
         // EXAMPLE: To add a new "Stopwatch" tool, you would add this:
         // {
@@ -184,6 +190,22 @@
             document.getElementById('charCount').textContent = text.length;
             const words = text.trim().split(/\s+/).filter(word => word !== '');
             document.getElementById('wordCount').textContent = text.trim() === '' ? 0 : words.length;
+        });
+    }
+
+    // Add this with your other initializer functions
+    function initializeJsonFormatter() {
+        const jsonInput = document.getElementById('jsonInput');
+        const jsonOutput = document.getElementById('jsonOutput');
+        jsonInput.addEventListener('input', () => {
+            try {
+                const parsed = JSON.parse(jsonInput.value);
+                jsonOutput.textContent = JSON.stringify(parsed, null, 2);
+                jsonOutput.classList.remove('text-red-500');
+            } catch (e) {
+                jsonOutput.textContent = e.message;
+                jsonOutput.classList.add('text-red-500');
+            }
         });
     }
 </script>
