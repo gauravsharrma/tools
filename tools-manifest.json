@@ -1,0 +1,21 @@
+[
+    {
+        "name": "Markdown to HTML",
+        "html": "./tools/markdown-converter/markdown-converter.html",
+        "js": "./tools/markdown-converter/markdown-converter.js",
+        "initFunction": "initializeMarkdownConverter",
+        "isWide": true
+    },
+    {
+        "name": "Calculator",
+        "html": "./tools/calculator/calculator.html",
+        "js": "./tools/calculator/calculator.js",
+        "initFunction": "initializeCalculator"
+    },
+    {
+        "name": "Character & Word Count",
+        "html": "./tools/word-counter/word-counter.html",
+        "js": "./tools/word-counter/word-counter.js",
+        "initFunction": "initializeWordCounter"
+    }
+]
