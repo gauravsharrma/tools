@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Multi-Tool App</title>
+    <title>Zero-Touch Multi-Tool App</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,7 +11,6 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <style>
@@ -19,25 +18,14 @@
         .active-tool { background-color: #3b82f6; color: white !important; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .tool-content { animation: fadeIn 0.3s ease-in-out; }
-        /* For the markdown output area */
-        #md-output { font-size: 16px; }
-        /* Tailwind's 'prose' class gives beautiful typography to the rendered HTML */
-        #md-output.prose h1,
-        #md-output.prose h2 {
-             margin-top: 0;
-             padding-bottom: 0.3em;
-             border-bottom: 1px solid #e5e7eb;
-        }
-        #md-output.prose pre {
-            color: #abb2bf;
-            background-color: #282c34;
-        }
+        #md-output.prose h1,#md-output.prose h2 { margin-top: 0; padding-bottom: 0.3em; border-bottom: 1px solid #e5e7eb; }
+        #md-output.prose pre { color: #abb2bf; background-color: #282c34; }
     </style>
 </head>
 <body class="bg-slate-100 h-screen overflow-hidden">
 
     <div class="flex h-full">
-        <div id="left-sidebar" class="w-1/4 bg-white border-r border-slate-200 p-6 flex flex-col transition-all duration-300">
+        <div id="left-sidebar" class="bg-white border-r border-slate-200 flex flex-col transition-all duration-300">
             <h1 class="text-2xl font-bold text-slate-800 mb-6">Tools</h1>
             <div class="mb-4">
                 <input type="text" id="toolSearch" onkeyup="filterTools()" placeholder="Search tools..." class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -51,277 +39,107 @@
             </div>
         </div>
 
-        <main id="content-frame" class="w-3/4 p-0 md:p-8 overflow-y-auto transition-all duration-300"></main>
+        <main id="content-frame" class="overflow-y-auto transition-all duration-300"></main>
     </div>
 
 <script>
-    // =========================================================================
-    //  SINGLE SOURCE OF TRUTH: TOOL CONFIGURATION
-    // =========================================================================
-    const TOOLS = [
-        {
-            name: 'Markdown to HTML',
-            file: 'markdown-converter.html',
-            initFunction: initializeMarkdownConverter,
-            isWide: true // Flag for special layout
-        },
-        {
-            name: 'Calculator',
-            file: 'calculator.html',
-            initFunction: initializeCalculator
-        },
-        {
-            name: 'Character & Word Count',
-            file: 'word-counter.html',
-            initFunction: initializeWordCounter
-        }
-    ];
+    // This script now acts as a generic loader and will not need to be changed to add new tools.
+    const manifestURL = './tools-manifest.json';
+    let appTools = [];
 
-    // =========================================================================
-    //  CORE APPLICATION LOGIC
-    // =========================================================================
-    
-    function populateToolList() {
+    function populateToolList(tools) {
         const ul = document.getElementById('tools-ul');
         ul.innerHTML = '';
-        TOOLS.forEach(tool => {
+        tools.forEach(tool => {
             const li = document.createElement('li');
             const a = document.createElement('a');
             a.href = '#';
             a.textContent = tool.name;
             a.className = 'block p-3 rounded-lg font-semibold text-slate-700 hover:bg-slate-200';
-            a.onclick = (e) => {
-                e.preventDefault();
-                loadTool(tool, a);
-            };
+            a.onclick = (e) => { e.preventDefault(); loadTool(tool, a); };
             li.appendChild(a);
-            ul.appendChild(li);
+ul.appendChild(li);
         });
     }
 
     async function loadTool(tool, element) {
-        const { file, initFunction, isWide } = tool;
+        const { html, js, initFunction, isWide } = tool;
         const leftSidebar = document.getElementById('left-sidebar');
         const contentFrame = document.getElementById('content-frame');
 
+        // Adjust layout
         if (isWide) {
-            leftSidebar.classList.remove('w-1/4', 'p-6');
-            leftSidebar.classList.add('w-[10%]', 'p-3');
-            contentFrame.classList.remove('w-3/4', 'md:p-8');
-            contentFrame.classList.add('w-[90%]', 'p-0');
+            leftSidebar.className = "w-[10%] p-3 bg-white border-r border-slate-200 flex flex-col transition-all duration-300";
+            contentFrame.className = "w-[90%] p-0 overflow-y-auto transition-all duration-300";
         } else {
-            leftSidebar.classList.remove('w-[10%]', 'p-3');
-            leftSidebar.classList.add('w-1/4', 'p-6');
-            contentFrame.classList.remove('w-[90%]', 'p-0');
-            contentFrame.classList.add('w-3/4', 'md:p-8');
+            leftSidebar.className = "w-1/4 p-6 bg-white border-r border-slate-200 flex flex-col transition-all duration-300";
+            contentFrame.className = "w-3/4 md:p-8 p-4 overflow-y-auto transition-all duration-300";
         }
         
         try {
-            const response = await fetch(file);
-            if (!response.ok) throw new Error(`Could not fetch ${file}`);
-            contentFrame.innerHTML = await response.text();
-            
-            if (initFunction && typeof initFunction === 'function') {
-                initFunction();
-            }
+            // Remove the old tool's script to prevent function conflicts
+            document.getElementById('tool-script')?.remove();
 
+            // Fetch and display the HTML content
+            const response = await fetch(html);
+            if (!response.ok) throw new Error(`Could not fetch ${html}`);
+            contentFrame.innerHTML = await response.text();
+
+            // Create a new script tag for the tool's JavaScript
+            const script = document.createElement('script');
+            script.id = 'tool-script';
+            script.src = js;
+            script.onload = () => {
+                // Once the script is loaded, call its initializer function
+                if (typeof window[initFunction] === 'function') {
+                    window[initFunction]();
+                }
+            };
+            document.body.appendChild(script);
+
+            // Update active link style
             document.querySelectorAll('#toolList a').forEach(link => link.classList.remove('active-tool'));
             element.classList.add('active-tool');
+
         } catch (error) {
             contentFrame.innerHTML = `<p class="text-center text-red-500 font-semibold">${error}</p>`;
             console.error('Error loading tool:', error);
         }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        populateToolList();
-        if (TOOLS.length > 0) {
-            const firstToolLink = document.querySelector('#toolList a');
-            loadTool(TOOLS[0], firstToolLink);
+    async function main() {
+        try {
+            const response = await fetch(manifestURL);
+            appTools = await response.json();
+            populateToolList(appTools);
+            if (appTools.length > 0) {
+                const firstToolLink = document.querySelector('#toolList a');
+                loadTool(appTools[0], firstToolLink);
+            }
+        } catch (error) {
+            console.error('Failed to load the tool manifest!', error);
+            document.getElementById('content-frame').innerHTML = `<p class="text-red-500 p-8">Error: Could not load <strong>tools-manifest.json</strong>. Please ensure the file exists and is correctly formatted.</p>`;
         }
-        updateTime();
-        setInterval(updateTime, 1000);
-    });
+    }
 
     // --- Utility Functions ---
     function filterTools() {
         const filter = document.getElementById('toolSearch').value.toUpperCase();
-        const li = document.querySelectorAll('#tools-ul li');
-        li.forEach(item => {
+        document.querySelectorAll('#tools-ul li').forEach(item => {
             const txtValue = item.textContent || item.innerText;
             item.style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? "" : "none";
         });
     }
 
     function updateTime() {
-        const timeElement = document.getElementById('currentTime');
-        if (!timeElement) return;
-        timeElement.textContent = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        document.getElementById('currentTime').textContent = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
     }
 
-    // =========================================================================
-    //  TOOL-SPECIFIC INITIALIZATION SCRIPTS
-    // =========================================================================
-
-    function initializeMarkdownConverter() {
-        const mdInput = document.getElementById('md-input');
-        const mdOutput = document.getElementById('md-output');
-        const splitBy = document.getElementById('split-by');
-        const navInfo = document.getElementById('nav-info');
-        const currentChunkEl = document.getElementById('current-chunk');
-        const totalChunksEl = document.getElementById('total-chunks');
-        const increaseFontBtn = document.getElementById('increase-font');
-        const decreaseFontBtn = document.getElementById('decrease-font');
-
-        let contentChunks = [];
-        let currentChunkIndex = 0;
-        let currentFontSize = 16;
-        
-        marked.setOptions({
-            highlight: function(code, lang) {
-                const language = hljs.getLanguage(lang) ? lang : 'plaintext';
-                return hljs.highlight(code, { language }).value;
-            },
-            gfm: true,
-            breaks: true
-        });
-
-        const convertAndRender = () => {
-            const markdown = mdInput.value;
-            const splitValue = splitBy.value;
-
-            if (splitValue === 'none') {
-                mdOutput.innerHTML = marked.parse(markdown);
-                navInfo.classList.add('hidden');
-                contentChunks = [];
-                return;
-            }
-
-            navInfo.classList.remove('hidden');
-            let regex;
-            switch(splitValue) {
-                case '---': regex = /(?=^---$)/m; break;
-                case '#': regex = /(?=^#\s)/m; break;
-                case '##': regex = /(?=^##\s)/m; break;
-                case '###': regex = /(?=^###\s)/m; break;
-                case 'paragraph': regex = /(?=\n\n)/; break;
-                case 'sentence': regex = /(?<=[.!?])\s+/; break;
-            }
-            
-            contentChunks = markdown.split(regex).filter(s => s.trim() !== '');
-            totalChunksEl.textContent = contentChunks.length || 1;
-            renderChunk(0);
-        };
-        
-        const renderChunk = (index) => {
-            if (contentChunks.length === 0) {
-                mdOutput.innerHTML = marked.parse(mdInput.value);
-                currentChunkIndex = 0;
-                currentChunkEl.textContent = 1;
-                return;
-            }
-            currentChunkIndex = Math.max(0, Math.min(index, contentChunks.length - 1));
-            mdOutput.innerHTML = marked.parse(contentChunks[currentChunkIndex] || '');
-            currentChunkEl.textContent = currentChunkIndex + 1;
-        };
-        
-        const handleKeyDown = (e) => {
-            if (splitBy.value !== 'none') {
-                if (e.key === 'ArrowRight') {
-                    e.preventDefault();
-                    renderChunk(currentChunkIndex + 1);
-                } else if (e.key === 'ArrowLeft') {
-                    e.preventDefault();
-                    renderChunk(currentChunkIndex - 1);
-                }
-            }
-        };
-
-        const updateFontSize = (newSize) => {
-            currentFontSize = Math.max(8, Math.min(32, newSize));
-            mdOutput.style.fontSize = `${currentFontSize}px`;
-        };
-        
-        const resizer = document.getElementById('md-resizer');
-        const leftPane = document.getElementById('md-left-pane');
-        const rightPane = document.getElementById('md-right-pane');
-        
-        let isResizing = false;
-        resizer.addEventListener('mousedown', (e) => {
-            isResizing = true;
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', () => {
-                isResizing = false;
-                document.removeEventListener('mousemove', handleMouseMove);
-            }, { once: true });
-        });
-
-        const handleMouseMove = (e) => {
-            if (!isResizing) return;
-            const container = document.getElementById('md-main-content');
-            const containerOffsetLeft = container.getBoundingClientRect().left;
-            const pointerRelativeX = e.clientX - containerOffsetLeft;
-            const newLeftWidth = (pointerRelativeX / container.clientWidth) * 100;
-            
-            leftPane.style.width = `${Math.max(10, Math.min(90, newLeftWidth))}%`;
-            rightPane.style.width = `${100 - Math.max(10, Math.min(90, newLeftWidth))}%`;
-        };
-
-        mdInput.addEventListener('input', convertAndRender);
-        splitBy.addEventListener('change', convertAndRender);
-        document.addEventListener('keydown', handleKeyDown);
-        increaseFontBtn.addEventListener('click', () => updateFontSize(currentFontSize + 1));
-        decreaseFontBtn.addEventListener('click', () => updateFontSize(currentFontSize - 1));
-
-        convertAndRender();
-    }
-
-    function initializeCalculator() {
-        const calcDisplay = document.getElementById('calcDisplay');
-        let currentInput = '0';
-
-        document.querySelectorAll('.calc-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                const action = button.dataset.action;
-                const value = button.textContent;
-                
-                if (!action) appendInput(value);
-                else if (action === 'clear') clearDisplay();
-                else if (action === 'delete') deleteLast();
-                else if (action === 'calculate') calculateResult();
-            });
-        });
-
-        const appendInput = (value) => {
-            const operators = ['+', '-', 'x', '/'];
-            const lastChar = currentInput.slice(-1);
-            if (operators.includes(lastChar) && operators.includes(value)) return;
-            const segments = currentInput.split(/[+\-x/]/);
-            if (value === '.' && segments[segments.length - 1].includes('.')) return;
-            currentInput = (currentInput === '0' && value !== '.') ? value : currentInput + value;
-            updateCalcDisplay(currentInput);
-        };
-        const clearDisplay = () => { currentInput = '0'; updateCalcDisplay(currentInput); };
-        const deleteLast = () => { currentInput = currentInput.slice(0, -1) || '0'; updateCalcDisplay(currentInput); };
-        const calculateResult = () => {
-            try {
-                const result = new Function('return ' + currentInput.replace(/x/g, '*'))();
-                currentInput = String(Number(result.toFixed(10)));
-            } catch (error) { currentInput = 'Error'; }
-            updateCalcDisplay(currentInput);
-        };
-        const updateCalcDisplay = (value) => { calcDisplay.textContent = value; };
-    }
-
-    function initializeWordCounter() {
-        const textInput = document.getElementById('textInput');
-        textInput.addEventListener('input', () => {
-            const text = textInput.value;
-            document.getElementById('charCount').textContent = text.length;
-            const words = text.trim().split(/\s+/).filter(word => word !== '');
-            document.getElementById('wordCount').textContent = text.trim() === '' ? 0 : words.length;
-        });
-    }
+    // --- App Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+        main();
+        setInterval(updateTime, 1000);
+    });
 </script>
 </body>
 </html>
