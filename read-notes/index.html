@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Content Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/read-excel-file@5.x/bundle/read-excel-file.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
+    <style>
+        body {
+            font-family: 'Merriweather', serif;
+        }
+        .prose h1, .prose h2, .prose h3 { break-after: avoid-column; }
+        #second-column-content {
+            column-gap: 2.5rem;
+        }
+    </style>
+</head>
+<body class="bg-white">
+
+    <header id="page-header" class="fixed top-0 left-0 right-0 bg-white bg-opacity-95 backdrop-blur-sm z-20 border-b">
+        <div class="flex items-center justify-between p-2">
+            <div class="flex items-center flex-1 min-w-0">
+                <h1 id="current-topic-title" class="text-base sm:text-lg font-bold text-gray-800 truncate pl-4">Content Viewer</h1>
+                <span id="split-progress" class="text-sm text-gray-500 ml-3 font-mono whitespace-nowrap"></span>
+            </div>
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <div class="flex items-center space-x-1 bg-gray-100 rounded-full p-1">
+                    <button id="decrease-font" title="Decrease Font (M)" class="p-1.5 rounded-full hover:bg-gray-200">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" /></svg>
+                    </button>
+                    <button id="increase-font" title="Increase Font (N)" class="p-1.5 rounded-full hover:bg-gray-200">
+                       <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                    </button>
+                </div>
+                <div id="column-selector" class="hidden md:flex items-center bg-gray-100 rounded-full p-1 text-sm">
+                     <button data-columns="1" class="column-btn bg-indigo-600 text-white px-3 py-1 rounded-full">1</button>
+                     <button data-columns="2" class="column-btn px-3 py-1 rounded-full">2</button>
+                     <button data-columns="3" class="column-btn px-3 py-1 rounded-full">3</button>
+                     <button data-columns="4" class="column-btn px-3 py-1 rounded-full">4</button>
+                </div>
+                <select id="split-by-selector" class="text-sm rounded-full border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100 hover:bg-gray-200">
+                    <option value="none">No Split</option>
+                    <option value="---">---</option>
+                    <option value="#"># H1</option>
+                    <option value="##">## H2</option>
+                    <option value="###">### H3</option>
+                    <option value="paragraph">Paragraph</option>
+                    <option value="newline">New Line</option>
+                </select>
+                <input type="file" id="excel-file" class="hidden"/>
+                <label for="excel-file" title="Upload Excel File" class="cursor-pointer p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <main id="main-content" class="pt-20">
+        <div class="bg-white" style="min-height: calc(100vh - 5rem);">
+            <div id="second-column-content" class="prose max-w-none w-full px-6 py-8 sm:px-8 sm:py-10 md:px-12 md:py-12">
+                <p class="text-gray-500 text-center">Upload a file to begin. Use Spacebar and Alt keys to navigate split content.</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // DOM Elements
+        const fileInput = document.getElementById('excel-file');
+        const contentContainer = document.getElementById('second-column-content');
+        const columnSelector = document.getElementById('column-selector');
+        const currentTopicTitle = document.getElementById('current-topic-title');
+        const increaseFontBtn = document.getElementById('increase-font');
+        const decreaseFontBtn = document.getElementById('decrease-font');
+        const splitBySelector = document.getElementById('split-by-selector');
+        const splitProgressIndicator = document.getElementById('split-progress');
+
+        // State
+        let excelData = [];
+        let topicList = [];
+        let currentTopicIndex = -1;
+        let currentFontSize = 1;
+        
+        let split_chunks = [];
+        let split_currentIndex = -1;
+        
+        const markdownConverter = new showdown.Converter({tables: true, strikethrough: true, tasklists: true, simpleLineBreaks: true});
+
+        // --- NAVIGATION & DISPLAY ---
+        function displayTopic(topicIndex) {
+            if (topicIndex < 0 || topicIndex >= topicList.length) return;
+            
+            currentTopicIndex = topicIndex;
+            const rowIndex = topicList[topicIndex].originalIndex;
+            const markdownContent = excelData[rowIndex][1] || '';
+            currentTopicTitle.textContent = excelData[rowIndex][0] || 'Untitled';
+            
+            processAndDisplayContent(markdownContent);
+            window.scrollTo(0, 0);
+        }
+
+        function processAndDisplayContent(markdownContent) {
+            const split_delimiter = splitBySelector.value;
+            if (split_delimiter === 'none' || !markdownContent) {
+                split_chunks = [markdownContent];
+            } else {
+                const regex = getSplitRegex(split_delimiter);
+                split_chunks = markdownContent.split(regex).filter(c => c && c.trim() !== '');
+            }
+            split_currentIndex = 0;
+            displayCurrentChunk();
+        }
+
+        function displayCurrentChunk() {
+            if (split_currentIndex < 0 || split_chunks.length === 0 || !split_chunks[split_currentIndex]) {
+                contentContainer.innerHTML = '';
+                splitProgressIndicator.textContent = '';
+                return;
+            }
+            
+            if(split_currentIndex >= split_chunks.length) {
+                split_currentIndex = split_chunks.length - 1;
+            }
+
+            // **FIX**: Display only the CURRENT chunk, not all previous chunks.
+            const currentChunkMarkdown = split_chunks[split_currentIndex];
+            const htmlContent = markdownConverter.makeHtml(currentChunkMarkdown);
+            contentContainer.innerHTML = htmlContent;
+
+            // Update progress indicator
+            if (split_chunks.length > 1) {
+                splitProgressIndicator.textContent = `(${(split_currentIndex + 1)}/${split_chunks.length})`;
+            } else {
+                splitProgressIndicator.textContent = '';
+            }
+        }
+        
+        // --- EVENT LISTENERS ---
+        document.addEventListener('keydown', function(event) {
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT') return;
+
+            switch(event.key) {
+                case ' ': // Spacebar
+                    event.preventDefault();
+                    if (split_currentIndex < split_chunks.length - 1) {
+                        split_currentIndex++;
+                        displayCurrentChunk();
+                    }
+                    break;
+                case 'Alt':
+                    event.preventDefault();
+                    if (split_currentIndex > 0) {
+                        split_currentIndex--;
+                        displayCurrentChunk();
+                    }
+                    break;
+                case 'ArrowRight':
+                    displayTopic(currentTopicIndex + 1);
+                    break;
+                case 'ArrowLeft':
+                    displayTopic(currentTopicIndex - 1);
+                    break;
+                case 'n': case 'N':
+                    increaseFontBtn.click();
+                    break;
+                case 'm': case 'M':
+                    decreaseFontBtn.click();
+                    break;
+            }
+        });
+
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) readExcelFile(file);
+        });
+        
+        increaseFontBtn.addEventListener('click', () => {
+            currentFontSize += 0.1;
+            contentContainer.style.fontSize = `${currentFontSize}rem`;
+        });
+
+        decreaseFontBtn.addEventListener('click', () => {
+            if (currentFontSize > 0.6) {
+                currentFontSize -= 0.1;
+                contentContainer.style.fontSize = `${currentFontSize}rem`;
+            }
+        });
+
+        columnSelector.addEventListener('click', (e) => {
+            if (e.target.classList.contains('column-btn')) {
+                contentContainer.style.columnCount = e.target.dataset.columns;
+                document.querySelectorAll('.column-btn').forEach(btn => btn.classList.remove('bg-indigo-600', 'text-white'));
+                e.target.classList.add('bg-indigo-600', 'text-white');
+            }
+        });
+
+        splitBySelector.addEventListener('change', () => {
+            if (currentTopicIndex !== -1) {
+                const rowIndex = topicList[currentTopicIndex].originalIndex;
+                const markdownContent = excelData[rowIndex][1] || '';
+                processAndDisplayContent(markdownContent);
+            }
+        });
+
+        // --- UTILITY & SETUP ---
+        function readExcelFile(file) {
+            readXlsxFile(file).then((rows) => {
+                excelData = rows;
+                topicList = [];
+                rows.forEach((row, index) => {
+                    if (row && row[0]) {
+                        topicList.push({ title: row[0], originalIndex: index });
+                    }
+                });
+
+                if (topicList.length > 0) {
+                    displayTopic(0);
+                } else {
+                    contentContainer.innerHTML = '<p class="text-gray-500 text-center">No valid topics found in the first column of the Excel file.</p>';
+                    currentTopicTitle.textContent = "No Content";
+                }
+            }).catch(error => {
+                console.error(error);
+                alert("Error reading Excel file. Please ensure it's a valid format.");
+            });
+        }
+        
+        function getSplitRegex(delimiter) {
+            // Using lookaheads for headings to keep the delimiter as part of the next chunk.
+            // For other delimiters, we consume them.
+            switch(delimiter) {
+                case '---': return /\n---\n/;
+                case '#': return /(?=\n#\s)/;
+                case '##': return /(?=\n##\s)/;
+                case '###': return /(?=\n###\s)/;
+                case 'paragraph': return /\n\n+/;
+                case 'newline': return /\n/;
+                default: return /(?!)/; // A regex that never matches, effectively not splitting.
+            }
+        }
+    </script>
+</body>
+</html>
